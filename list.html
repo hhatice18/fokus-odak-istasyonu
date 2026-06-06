@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Fokus — Pomodoro & Görev Takibi</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+/* ─── TOKENS (Renk Şemaları - Açık: Pembe, Koyu: Mavi) ──────────────── */
+:root[data-theme="dark"]{
+  --bg:         #0b132b; 
+  --bg2:        #111c3a;
+  --surface:    rgba(28,37,65,0.85); 
+  --surface2:   rgba(11,19,43,0.6);
+  --border:     #48cae4; 
+  --accent:     #00b4d8; 
+  --accent2:    #90e0ef;
+  --accent-glow:rgba(0,180,216,0.35);
+  --text:       #e0f2fe; 
+  --text2:      #8ac926;
+  --text3:      #48cae4;
+  --done:       #3ecf8e;
+  --danger:     #f06b6b;
+  --warning:    #f5a623;
+  --card-shadow:0 8px 30px rgba(0, 180, 216, 0.15);
+}
+:root[data-theme="light"]{
+  --bg:         #fff0f5; 
+  --bg2:        #ffe4ef;
+  --surface:    rgba(255,255,255,0.85);
+  --surface2:   rgba(255,220,235,0.6);
+  --border:     #ffc0cb; 
+  --accent:     #e05588; 
+  --accent2:    #f080a8;
+  --accent-glow:rgba(224,85,136,0.25);
+  --text:       #4a2840; 
+  --text2:      #8a4060;
+  --text3:      #c090aa;
+  --done:       #2eb87a;
+  --danger:     #d94040;
+  --warning:    #d4820a;
+  --card-shadow:0 8px 30px rgba(255, 182, 193, 0.25);
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+body{
+  font-family:'DM Sans',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  overflow-x:hidden;
+  position:relative;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+.bg-canvas{
+  position:fixed;inset:0;pointer-events:none;z-index:0;
+  overflow:hidden;
+}
+.bg-canvas svg{width:100%;height:100%;position:absolute;inset:0;}
+
+.app{
+  position:relative;z-index:1;
+  max-width:1140px;
+  margin:0 auto;
+  padding:28px 20px 60px;
+}
+
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:32px;
+  background:var(--surface);
+  border:3px solid var(--border);
+  border-radius:22px;
+  padding:15px 25px;
+  box-shadow:var(--card-shadow);
+}
+.logo {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.6rem;
+  font-weight: bold;
+}
+
+.icon-btn{
+  background:var(--surface2);
+  border:2px solid var(--border);
+  color:var(--text);
+  padding:8px 18px;
+  border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:0.95rem;font-weight:bold;
+  transition:all .2s;
+}
+.icon-btn:hover{background:var(--accent);color:#fff;transform:scale(1.03);}
+
+.card{
+  background:var(--surface);
+  border:3px solid var(--border);
+  border-radius:22px;
+  padding:26px 28px;
+  box-shadow:var(--card-shadow);
+  backdrop-filter:blur(18px);
+}
+.card-title{
+  font-family:'DM Serif Display',serif;
+  font-size:1.35rem;
+  color:var(--text);
+  margin-bottom:18px;
+  display:flex;align-items:center;gap:8px;
+  border-bottom:2px dashed var(--border);
+  padding-bottom:8px;
+}
+.card-title .pill{
+  font-family:'DM Sans',sans-serif;
+  font-size:.65rem;font-weight:600;letter-spacing:.08em;
+  background:var(--accent);color:#fff;
+  padding:3px 9px;border-radius:20px;text-transform:uppercase;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:25px;
+}
+.grid.three {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 25px;
+}
+@media(max-width:820px){.grid,.grid.three{grid-template-columns:1fr;}}
+
+.stat-bar{
+  display:flex;gap:14px;margin-bottom:25px;flex-wrap:wrap;
+}
+.stat{
+  flex:1;min-width:130px;
+  background:var(--surface);
+  border:3px solid var(--border);
+  border-radius:16px;
+  padding:16px 18px;
+  display:flex;flex-direction:column;gap:4px;
+  box-shadow:var(--card-shadow);
+}
+.stat-label{font-size:.72rem;color:var(--text);opacity:0.8;text-transform:uppercase;letter-spacing:.08em;font-weight:bold;}
+.stat-value{font-size:1.6rem;font-weight:600;color:var(--accent);}
+.stat-unit{font-size:.75rem;opacity:0.7;}
+
+/* POMODORO DEKORASYONLARI */
+.pomo-wrap{display:flex;flex-direction:column;align-items:center;gap:22px;}
+.pomo-ring{position:relative;width:200px;height:200px;}
+.pomo-ring svg{transform:rotate(-90deg);}
+.ring-bg{fill:none;stroke:var(--surface2);stroke-width:10;}
+.ring-progress{
+  fill:none;stroke:var(--accent);stroke-width:10;
+  stroke-linecap:round;
+  stroke-dasharray:565.48;
+  stroke-dashoffset:0;
+  transition:stroke-dashoffset .5s ease, stroke .4s;
+}
+.pomo-time{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+.pomo-digits{
+  font-family:'DM Serif Display',serif;
+  font-size:2.8rem;color:var(--text);line-height:1;
+}
+.pomo-label{font-size:.72rem;opacity:0.7;margin-top:4px;letter-spacing:.1em;text-transform:uppercase;font-weight:bold;}
+.pomo-controls{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+
+button.pomo-btn, .break-add-btn, .quote-refresh, .todo-add-btn {
+  padding: 10px 20px; border-radius:14px; border:2px solid var(--border);
+  font-family:'DM Sans',sans-serif; font-size:.85rem; font-weight: bold;
+  cursor:pointer; transition:all .2s;
+  background:var(--surface2); color:var(--text);
+}
+button.pomo-btn.primary, .todo-add-btn { background:var(--accent); color:#fff; border-color:var(--border); }
+button:hover{ transform:translateY(-2px); }
+
+.duration-controls{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;
+}
+.dur-group{
+  display:flex;align-items:center;gap:6px;
+  background:var(--surface2);border:2px solid var(--border);
+  border-radius:12px;padding:6px 10px;
+}
+.dur-label{font-size:.72rem;font-weight:bold;}
+.dur-val{font-weight:800;color:var(--accent);min-width:24px;text-align:center;}
+.dur-btn{
+  width:24px;height:24px;border-radius:8px;border:1px solid var(--border);
+  background:var(--surface);color:var(--text);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:bold;
+}
+.dur-btn:hover{background:var(--accent);color:#fff;}
+
+.mode-badges{display:flex;gap:8px;margin-bottom:6px;}
+.mode-badge{
+  padding:6px 14px;border-radius:20px;font-size:.75rem;font-weight:bold;
+  border:2px solid var(--border);cursor:pointer;transition:all .2s;
+  background:var(--surface2);color:var(--text);
+}
+.mode-badge.active{background:var(--accent);color:#fff;}
+
+/* HAFIZALI GÖREV LİSTESİ */
+.todo-input-row{display:flex;gap:10px;margin-bottom:16px;}
+.todo-input{
+  flex:1;
+  background:var(--surface2);border:2px solid var(--border);
+  color:var(--text);border-radius:13px;padding:11px 16px;
+  font-family:'DM Sans',sans-serif;font-size:.9rem;outline:none;
+}
+.todo-input:focus{border-color:var(--accent);}
+.todo-list{display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;}
+
+.todo-item{
+  display:flex;align-items:center;gap:10px;
+  background:var(--surface2);border:2px solid var(--border);
+  border-radius:13px;padding:11px 14px;
+}
+.todo-item.done .todo-text{text-decoration:line-through;opacity:0.5;}
+.todo-check{
+  width:22px;height:22px;border-radius:6px;
+  border:2px solid var(--border);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;font-weight:bold;
+}
+.todo-check.checked{background:var(--done);border-color:var(--border);color:#fff;}
+.todo-text{flex:1;font-size:.88rem;}
+.todo-del{
+  background:none;border:none;color:var(--danger);
+  cursor:pointer;font-size:1.1rem;padding:2px 6px;
+}
+
+/* SU TAKİBİ */
+.water-glasses{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px;margin-top:10px;}
+.glass{
+  width:38px;height:48px;position:relative;cursor:pointer;
+  border-radius:4px 4px 8px 8px;
+  border:2px solid var(--border);
+  overflow:hidden;background:var(--surface2);
+}
+.glass-fill{
+  position:absolute;bottom:0;left:0;right:0;
+  background:linear-gradient(180deg,var(--accent2),var(--accent));
+  transition:height .3s ease;
+}
+.glass.filled .glass-fill{height:100%;}
+.glass-icon{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:1.1rem;z-index:1;
+}
+.water-status{font-size:.85rem;font-weight:bold;margin-bottom:8px;}
+.water-reset{
+  font-size:.75rem;color:var(--text);background:none;border:none;cursor:pointer;text-decoration:underline;
+}
+
+/* MOTİVASYON KÖŞESİ */
+.quote-box{
+  font-family:'DM Serif Display',serif;
+  font-size:1.15rem;font-style:italic;
+  color:var(--text);line-height:1.6;
+  text-align:center;padding:10px 0;
+}
+.quote-author{
+  font-family:'DM Sans',sans-serif;font-style:normal;
+  font-size:.82rem;opacity:0.7;margin-top:8px;text-align:center;
+}
+
+/* KESİNTİSİZ YOUTUBE PLAYER */
+.yt-music-container {
+  position: relative;
+  width: 100%;
+  height: 350px; 
+  border-radius: 14px;
+  overflow: hidden;
+  border: 3px solid var(--border);
+  box-shadow: var(--card-shadow);
+}
+.yt-music-container iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* ANLIK BİLDİRİM */
+.notif{
+  position:fixed;top:24px;right:24px;z-index:9999;
+  background:var(--surface);
+  border:3px solid var(--border);
+  border-radius:16px;padding:16px 20px;
+  max-width:320px;box-shadow:0 8px 32px rgba(0,0,0,0.35);
+  transform:translateX(120%);transition:transform .4s cubic-bezier(.2,.8,.2,1);
+  display:flex;align-items:flex-start;gap:12px;
+}
+.notif.show{transform:translateX(0);}
+.notif-icon{font-size:1.5rem;}
+.notif-body .notif-title{font-weight:600;font-size:.9rem;margin-bottom:3px;}
+.notif-body .notif-msg{font-size:.8rem;}
+.notif-close{
+  margin-left:auto;background:none;border:none;color:var(--text);cursor:pointer;font-weight:bold;
+}
+
+/* TOPLAM SÜRE ÇUBUĞU */
+.total-bar{
+  margin-bottom:25px;
+  background:var(--surface);border:3px solid var(--border);
+  border-radius:18px;padding:18px 24px;
+  display:flex;align-items:center;gap:18px;
+  box-shadow:var(--card-shadow);flex-wrap:wrap;
+}
+.total-icon{font-size:2rem;}
+.total-text .t1{font-size:.72rem;opacity:0.8;text-transform:uppercase;letter-spacing:.08em;font-weight:bold;}
+.total-text .t2{font-size:1.3rem;font-weight:600;}
+.total-bar-track{flex:1;min-width:120px;height:8px;background:var(--surface2);border-radius:6px;overflow:hidden;border:1px solid var(--border);}
+.total-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:6px;width:0%;transition:width .5s;}
+.total-reset{
+  background:none;border:none;color:var(--text);font-size:.75rem;cursor:pointer;text-decoration:underline;
+}
+</style>
+</head>
+<body>
+
+<div class="bg-canvas">
+  <svg id="bgSvg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <!-- Arka plan çiçekleri dinamik çizilecek -->
+  </svg>
+</div>
+
+<div class="notif" id="notif">
+  <div class="notif-icon" id="notifIcon">🔔</div>
+  <div class="notif-body">
+    <div class="notif-title" id="notifTitle">Süre doldu!</div>
+    <div class="notif-msg" id="notifMsg">Harika iş çıkardın, mola zamanı.</div>
+  </div>
+  <button class="notif-close" onclick="closeNotif()">✕</button>
+</div>
+
+<div class="app">
+  <header>
+    <div class="logo">🎯 Fokus<span>.</span></div>
+    <div class="header-actions">
+      <button class="icon-btn" id="themeBtn" onclick="toggleTheme()">🌙 Koyu Mod (Mavi)</button>
+    </div>
+  </header>
+
+  <!-- İlerleme Çubuğu -->
+  <div class="total-bar" id="totalBar">
+    <div class="total-icon">⏱️</div>
+    <div class="total-text">
+      <div class="t1">Bugün çalıştığınız süre</div>
+      <div class="t2" id="totalDisplay">0 saat <span id="totalMin">0</span> dakika</div>
+    </div>
+    <div class="total-bar-track"><div class="total-bar-fill" id="totalBarFill"></div></div>
+    <button class="total-reset" onclick="resetTotal()">sıfırla</button>
+  </div>
+
+  <!-- Rapor Paneli -->
+  <div class="stat-bar">
+    <div class="stat">
+      <div class="stat-label">Tamamlanan Pomodoro</div>
+      <div class="stat-value" id="statPomo">0</div>
+      <div class="stat-unit">oturum</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Tamamlanan Görev</div>
+      <div class="stat-value" id="statTask">0</div>
+      <div class="stat-unit">görev</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Su Tüketimi</div>
+      <div class="stat-value" id="statWater">0</div>
+      <div class="stat-unit">/ 8 bardak</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Ekstra Mola</div>
+      <div class="stat-value" id="statBreak">0</div>
+      <div class="stat-unit">eklendi</div>
+    </div>
+  </div>
+
+  <div class="grid" style="margin-bottom:25px;">
+    <!-- POMODORO -->
+    <div class="card">
+      <div class="card-title">🍅 Pomodoro Sayacı <span class="pill">Odak</span></div>
+      <div class="pomo-wrap">
+        <div class="mode-badges">
+          <button class="mode-badge active" id="badgeWork" onclick="setMode('work')">Çalışma</button>
+          <button class="mode-badge" id="badgeShort" onclick="setMode('short')">Kısa Mola</button>
+          <button class="mode-badge" id="badgeLong" onclick="setMode('long')">Uzun Mola</button>
+        </div>
+        <div class="pomo-ring">
+          <svg width="200" height="200" viewBox="0 0 200 200">
+            <circle class="ring-bg" cx="100" cy="100" r="90"/>
+            <circle class="ring-progress" id="ringProgress" cx="100" cy="100" r="90"/>
+          </svg>
+          <div class="pomo-time">
+            <div class="pomo-digits" id="pomoDigits">25:00</div>
+            <div class="pomo-label" id="pomoLabel">ÇALIŞMA</div>
+          </div>
+        </div>
+        
+        <div class="duration-controls">
+          <div class="dur-group">
+            <button class="dur-btn" onclick="changeDur('work',-1)">−</button>
+            <div class="dur-label">Çalışma</div>
+            <div class="dur-val" id="durWork">25</div>
+            <div class="dur-label">dk</div>
+            <button class="dur-btn" onclick="changeDur('work',1)">+</button>
+          </div>
+          <div class="dur-group">
+            <button class="dur-btn" onclick="changeDur('short',-1)">−</button>
+            <div class="dur-label">Kısa</div>
+            <div class="dur-val" id="durShort">5</div>
+            <div class="dur-label">dk</div>
+            <button class="dur-btn" onclick="changeDur('short',1)">+</button>
+          </div>
+          <div class="dur-group">
+            <button class="dur-btn" onclick="changeDur('long',-1)">−</button>
+            <div class="dur-label">Uzun</div>
+            <div class="dur-val" id="durLong">15</div>
+            <div class="dur-label">dk</div>
+            <button class="dur-btn" onclick="changeDur('long',1)">+</button>
+          </div>
+        </div>
+        <div class="pomo-controls">
+          <button class="pomo-btn primary" id="pomoBtnStart" onclick="toggleTimer()">▶ Başlat</button>
+          <button class="pomo-btn" onclick="resetTimer()">↺ Sıfırla</button>
+          <button class="break-add-btn" onclick="addExtraBreak()">☕ +5dk Mola</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TO-DO LIST -->
+    <div class="card">
+      <div class="card-title">✅ Görev Listesi <span class="pill">Bugün</span></div>
+      <div class="todo-input-row">
+        <input class="todo-input" id="todoInput" placeholder="Yeni görev ekle..." onkeydown="if(event.key==='Enter')addTodo()"/>
+        <button class="todo-add-btn" onclick="addTodo()">Ekle</button>
+      </div>
+      <div class="todo-list" id="todoList"></div>
+    </div>
+  </div>
+
+  <div class="grid three" style="margin-bottom:25px;">
+    <!-- SU TAKİBİ -->
+    <div class="card">
+      <div class="card-title">💧 Su Takibi</div>
+      <div class="water-glasses" id="waterGlasses"></div>
+      <div class="water-status" id="waterStatus">0 / 8 bardak içildi</div>
+      <button class="water-reset" onclick="resetWater()">Günlük sıfırla</button>
+    </div>
+
+    <!-- MOTİVASYON KÖŞESİ -->
+    <div class="card" id="motivCard">
+      <div class="card-title">✨ Motivasyon Köşesi</div>
+      <div class="quote-box" id="quoteText"></div>
+      <div class="quote-author" id="quoteAuthor"></div>
+      <div style="text-align:center; margin-top: 15px;"><button class="quote-refresh" onclick="newQuote()">Yeni İlham ✦</button></div>
+    </div>
+  </div>
+
+  <!-- ENTEGRE ÇALMA LİSTESİ -->
+  <div class="card">
+    <div class="card-title">🎵 Senin YouTube Music Çalışma Listen</div>
+    <div class="yt-music-container">
+      <iframe src="https://www.youtube.com/embed/videoseries?list=PLESgLaIe37UgUOh2hsR8B7mZYPPru3l38" title="Özel Çalışma Listem" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   LOCAL STORAGE (HAFIZA YÖNETİMİ)
+════════════════════════════════════════════════════════ */
+const S = {
+  get(k){try{return JSON.parse(localStorage.getItem(k));}catch{return null;}},
+  set(k,v){localStorage.setItem(k,JSON.stringify(v));}
+};
+
+/* ═══════════════════════════════════════════════════════
+   TEMA AYARLARI
+════════════════════════════════════════════════════════ */
+let theme = S.get('theme') || 'dark';
+document.documentElement.setAttribute('data-theme', theme);
+
+function toggleTheme(){
+  theme = theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', theme);
+  const btn = document.getElementById('themeBtn');
+  btn.innerHTML = theme === 'dark' ? '🌙 Koyu Mod (Mavi)' : '☀️ Açık Mod (Pembe)';
+  S.set('theme', theme);
+  drawBg();
+}
+
+/* ═══════════════════════════════════════════════════════
+   ARKA PLAN ÇİÇEK DETAYLARI
+════════════════════════════════════════════════════════ */
+function drawBg(){
+  const svg = document.querySelector('#bgSvg');
+  if(!svg) return;
+  const isDark = theme === 'dark';
+  const shapes = [
+    {cx:120,cy:150,rx:220,ry:180,rot:-30},
+    {cx:900,cy:100,rx:260,ry:200,rot:20},
+    {cx:600,cy:600,rx:300,ry:220,rot:45},
+    {cx:1100,cy:700,rx:200,ry:160,rot:-15},
+    {cx:50,cy:600,rx:180,ry:140,rot:60},
+  ];
+  const petalColors = isDark
+    ? ['rgba(79,142,247,0.06)', 'rgba(100,180,255,0.05)', 'rgba(50,100,200,0.05)']
+    : ['rgba(240,100,160,0.06)', 'rgba(255,150,190,0.05)', 'rgba(200,80,130,0.04)'];
+  
+  const flowers = Array.from({length:18},(_,i)=>({
+    cx:80+i*70,cy:200+Math.sin(i*1.3)*350,r:3+Math.random()*5
+  }));
+
+  svg.innerHTML = `
+    <defs><filter id="blur1"><feGaussianBlur stdDeviation="60"/></filter></defs>
+    ${shapes.map((s,i)=>`
+      <ellipse cx="${s.cx}" cy="${s.cy}" rx="${s.rx}" ry="${s.ry}"
+        transform="rotate(${s.rot},${s.cx},${s.cy})"
+        fill="${petalColors[i%petalColors.length]}" filter="url(#blur1)"/>
+    `).join('')}
+    ${flowers.map((f)=>petalsAt(f.cx,f.cy,f.r,isDark)).join('')}
+    ${smallDots(isDark)}
+  `;
+}
+
+function petalsAt(cx,cy,r,isDark){
+  const c = isDark ? `rgba(79,142,247,0.12)` : `rgba(240,100,160,0.14)`;
+  const n = 6;
+  return Array.from({length:n},(_,i)=>{
+    const a = (i/n)*360;
+    const ox = Math.cos(a*Math.PI/180)*r*2.2;
+    const oy = Math.sin(a*Math.PI/180)*r*2.2;
+    return `<ellipse cx="${cx+ox}" cy="${cy+oy}" rx="${r}" ry="${r*0.5}"
+      transform="rotate(${a+90},${cx+ox},${cy+oy})" fill="${c}"/>`;
+  }).join('') + `<circle cx="${cx}" cy="${cy}" r="${r*0.8}" fill="${c}"/>`;
+}
+
+function smallDots(isDark){
+  const c = isDark ? `rgba(79,142,247,0.1)` : `rgba(240,100,160,0.12)`;
+  return Array.from({length:40},(_,i)=>{
+    const x = Math.random()*1200, y = Math.random()*800, r = 1+Math.random()*3;
+    return `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}"/>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════
+   POMODORO GERI SAYIM MOTORU
+════════════════════════════════════════════════════════ */
+let durations = {work:25, short:5, long:15};
+let mode = 'work';
+let remaining = durations.work*60;
+let total = durations.work*60;
+let running = false;
+let timerId = null;
+
+const modeLabels = {work:'ÇALIŞMA', short:'KISA MOLA', long:'UZUN MOLA'};
+
+const savedDur = S.get('durations');
+if(savedDur) durations = {...durations, ...savedDur};
+
+function setMode(m){
+  if(running) return;
+  mode = m;
+  remaining = durations[m]*60;
+  total = durations[m]*60;
+  updateRing();
+  ['Work','Short','Long'].forEach(x=>document.getElementById('badge'+x).classList.remove('active'));
+  document.getElementById('badge'+m.charAt(0).toUpperCase()+m.slice(1)).classList.add('active');
+  document.getElementById('pomoLabel').textContent = modeLabels[m];
+}
+
+function changeDur(type,delta){
+  if(running) return;
+  durations[type] = Math.max(1, Math.min(90, durations[type]+delta));
+  document.getElementById('dur'+type.charAt(0).toUpperCase()+type.slice(1)).textContent = durations[type];
+  if(type === mode) setMode(mode);
+  S.set('durations', durations);
+}
+
+function toggleTimer(){
+  if(running){
+    clearInterval(timerId); running = false;
+    document.getElementById('pomoBtnStart').textContent = '▶ Devam';
+  } else {
+    running = true;
+    document.getElementById('pomoBtnStart').textContent = '⏸ Duraklat';
+    timerId = setInterval(()=>{
+      remaining--;
+      if(mode === 'work' && remaining % 60 === 0) addTotalSeconds(60); 
+      updateRing();
+      if(remaining <= 0){
+        clearInterval(timerId); running = false;
+        document.getElementById('pomoBtnStart').textContent = '▶ Başlat';
+        onPomoDone();
+      }
+    },1000);
+  }
+}
+
+function resetTimer(){
+  clearInterval(timerId); running = false;
+  remaining = durations[mode]*60; total = durations[mode]*60;
+  document.getElementById('pomoBtnStart').textContent = '▶ Başlat';
+  updateRing();
+}
+
+function addExtraBreak(){
+  remaining += 5*60; total += 5*60;
+  updateRing();
+  let b = parseInt(S.get('statBreak')||0)+1;
+  S.set('statBreak', b);
+  document.getElementById('statBreak').textContent = b;
+  showNotif('☕', 'Mola Eklendi', '5 dakika ekstra mola süresi eklendi!');
+}
+
+function updateRing(){
+  const m = Math.floor(remaining/60).toString().padStart(2,'0');
+  const s = (remaining%60).toString().padStart(2,'0');
+  document.getElementById('pomoDigits').textContent = `${m}:${s}`;
+  const pct = remaining/total;
+  const circ = 2*Math.PI*90;
+  document.getElementById('ringProgress').style.strokeDashoffset = circ*(1-pct);
+  document.getElementById('ringProgress').style.strokeDasharray = circ;
+  
+  if(pct < 0.2) document.getElementById('ringProgress').style.stroke = 'var(--danger)';
+  else if(pct < 0.5) document.getElementById('ringProgress').style.stroke = 'var(--warning)';
+  else document.getElementById('ringProgress').style.stroke = 'var(--accent)';
+}
+
+function onPomoDone(){
+  playBell();
+  if(mode === 'work'){
+    let n = parseInt(S.get('statPomo')||0)+1;
+    S.set('statPomo', n);
+    document.getElementById('statPomo').textContent = n;
+    showNotif('🍅', 'Pomodoro tamamlandı!', 'Harika iş çıkardın. Şimdi mola zamanı!');
+  } else {
+    showNotif('⚡', 'Mola bitti!', 'Geri dönme vakti, odaklanalım!');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   TOPLAM SÜRE HESAPLAYICI (Bugün x saat çalıştınız)
+════════════════════════════════════════════════════════ */
+let totalSecondsToday = S.get('totalSeconds') || 0;
+const todayDate = new Date().toDateString();
+
+function addTotalSeconds(n){
+  totalSecondsToday += n;
+  S.set('totalSeconds', totalSecondsToday);
+  S.set('lastDate', todayDate);
+  renderTotal();
+}
+
+function renderTotal(){
+  const h = Math.floor(totalSecondsToday / 3600);
+  const m = Math.floor((totalSecondsToday % 3600) / 60);
+  document.getElementById('totalDisplay').innerHTML = `${h} saat <span id="totalMin">${m}</span> dakika`;
+  const pct = Math.min(100, (totalSecondsToday / (8 * 3600)) * 100); 
+  document.getElementById('totalBarFill').style.width = pct + '%';
+}
+
+function resetTotal(){
+  totalSecondsToday = 0; S.set('totalSeconds', 0); renderTotal();
+}
+
+/* ═══════════════════════════════════════════════════════
+   GÖREV TAKİBİ (TO-DO LIST)
+════════════════════════════════════════════════════════ */
+let todos = S.get('todos') || [];
+
+function addTodo(){
+  const inp = document.getElementById('todoInput');
+  const text = inp.value.trim();
+  if(!text) return;
+  todos.push({id:Date.now(), text, done:false});
+  inp.value = '';
+  saveTodos(); renderTodos();
+}
+
+function toggleTodo(id){
+  todos = todos.map(t => t.id === id ? {...t, done:!t.done} : t);
+  saveTodos(); renderTodos();
+}
+
+function deleteTodo(id){
+  todos = todos.filter(t => t.id !== id);
+  saveTodos(); renderTodos();
+}
+
+function saveTodos(){
+  S.set('todos', todos);
+  const done = todos.filter(t => t.done).length;
+  document.getElementById('statTask').textContent = done;
+  S.set('statTask', done);
+}
+
+function renderTodos(){
+  const list = document.getElementById('todoList');
+  if(!list) return;
+  if(!todos.length){
+    list.innerHTML = `<div style="text-align:center;color:var(--text);opacity:0.6;font-size:.85rem;padding:20px 0;">Henüz görev yok 🌸</div>`;
+    return;
+  }
+  list.innerHTML = todos.map(t => `
+    <div class="todo-item${t.done?' done':''}">
+      <div class="todo-check${t.done?' checked':''}" onclick="toggleTodo(${t.id})">${t.done?'✓':''}</div>
+      <div class="todo-text">${t.text}</div>
+      <button class="todo-del" onclick="deleteTodo(${t.id})">🗑</button>
+    </div>
+  `).join('');
+  document.getElementById('statTask').textContent = todos.filter(x => x.done).length;
+}
+
+/* ═══════════════════════════════════════════════════════
+   GÜNLÜK SU TAKİBİ
+════════════════════════════════════════════════════════ */
+const GOAL = 8;
+let waterCount = S.get('waterCount') || 0;
+
+function renderWater(){
+  const wrap = document.getElementById('waterGlasses');
+  if(!wrap) return;
+  wrap.innerHTML = Array.from({length:GOAL},(_,i)=> `
+    <div class="glass${i<waterCount?' filled':''}" onclick="drinkWater(${i})">
+      <div class="glass-fill"></div>
+      <div class="glass-icon">${i<waterCount?'💧':'🥛'}</div>
+    </div>
+  `).join('');
+  document.getElementById('waterStatus').textContent = `${waterCount} / ${GOAL} bardak içildi`;
+  document.getElementById('statWater').textContent = waterCount;
+  if(waterCount >= GOAL) showNotif('💧', 'Tebrikler!', 'Günlük su içme hedefine ulaştın! 🎉');
+}
+
+function drinkWater(i){
+  waterCount = i + 1;
+  S.set('waterCount', waterCount);
+  S.set('waterDate', todayDate);
+  renderWater();
+}
+
+function resetWater(){
+  waterCount = 0; S.set('waterCount', 0); renderWater();
+}
+
+/* ═══════════════════════════════════════════════════════
+   İLHAM KART SÖZLERİ (Yenilenmiş Geniş Havuz)
+════════════════════════════════════════════════════════ */
+const quotes = [
+  {t:"Büyük başarılar, her gün yapılan küçük çabaların birikmesinden oluşur.", a:"Samuel Smiles"},
+  {t:"Başarı, çalışmanın içinde gizlidir. Onu arayanların yolu daima açıktır.", a:"Mustafa Kemal Atatürk"},
+  {t:"Disiplin, hedeflerinle arandaki en sağlam köprüdür.", a:"Jim Rohn"},
+  {t:"Bugün zor gelen şeyler, yarın seni çok daha güçlü kılacak.", a:"Geliştirici Notu"},
+  {t:"Odaklan. Bir şeyi tam ve iyi yapmak, on şeyi yarım yapmaktan iyidir.", a:"Anonim"},
+  {t:"Küçük adımlar, büyük yolculukların tek başlangıcıdır.", a:"Lao Tzu"},
+  {t:"Harika işler yapmanın tek yolu, yaptığınız işi sevmektir. Henüz bulamadıysanız aramaya devam edin.", a:"Steve Jobs"},
+  {t:"Gelecek, bugünden ona hazırlananlara aittir.", a:"Malcolm X"},
+  {t:"Uçamazsan koş, koşamazsan yürü, yürüyemezsen sürün; ama ne yaparsan yap ilerlemeye devam et.", a:"Martin Luther King Jr."},
+  {t:"Bir şampiyon, pes etmeyi düşündüğünde bile vazgeçmeyendir.", a:"Anonim"},
+  {t:"En karanlık gece bile sona erer ve güneş yeniden doğar.", a:"Victor Hugo"},
+  {t:"Zorluklar, yeteneğin eğitmenidir.", a:"William Shakespeare"},
+  {t:"Hiç hata yapmamış bir kişi, yeni hiçbir şey denememiş demektir.", a:"Albert Einstein"},
+  {t:"Kafesinden çıkıp uçmaktan korkan kuşun kanatları, ona sadece yük olur.", a:"Anonim"}
+];
+
+let lastQ = -1;
+
+function newQuote(){
+  const txt = document.getElementById('quoteText');
+  const auth = document.getElementById('quoteAuthor');
+  if(!txt || !auth) return;
+  
+  let i; do{ i = Math.floor(Math.random()*quotes.length); } while(i === lastQ);
+  lastQ = i;
+  txt.textContent = `"${quotes[i].t}"`;
+  auth.textContent = `— ${quotes[i].a}`;
+}
+
+/* ═══════════════════════════════════════════════════════
+   BİLDİRİM VE SİNYAL SESİ
+════════════════════════════════════════════════════════ */
+function playBell() {
+  const alarm = new Audio("https://assets.mixkit.co/active_storage/sfx/911/911-84.wav");
+  alarm.volume = 0.4;
+  alarm.play().catch(e => console.log("Zil çalınamadı:", e));
+}
+
+let notifTimer = null;
+function showNotif(icon, title, msg){
+  document.getElementById('notifIcon').textContent = icon;
+  document.getElementById('notifTitle').textContent = title;
+  document.getElementById('notifMsg').textContent = msg;
+  const n = document.getElementById('notif');
+  n.classList.add('show');
+  clearTimeout(notifTimer);
+  notifTimer = setTimeout(() => n.classList.remove('show'), 5000);
+}
+function closeNotif(){ document.getElementById('notif').classList.remove('show'); }
+
+/* ═══════════════════════════════════════════════════════
+   SAYFA TAMAMEN YÜKLENDİĞİNDE BAŞLAYACAK SİSTEM (window.onload)
+════════════════════════════════════════════════════════ */
+window.onload = function() {
+  // Arka planı çiz
+  drawBg();
+  
+  // Süre ayarlarını yükle
+  ['work','short','long'].forEach(t=>{
+    document.getElementById('dur'+t.charAt(0).toUpperCase()+t.slice(1)).textContent = durations[t];
+  });
+  updateRing();
+  
+  // Toplam süre kontrolü
+  if(S.get('lastDate') !== todayDate){ totalSecondsToday = 0; S.set('totalSeconds',0); S.set('lastDate',todayDate); }
+  renderTotal();
+  
+  // Görevleri listele
+  renderTodos();
+  
+  // Su durumunu yükle
+  if(S.get('waterDate') !== todayDate){ waterCount = 0; S.set('waterCount',0); S.set('waterDate',todayDate); }
+  renderWater();
+  
+  // İlk motivasyon sözünü getir
+  newQuote();
+  
+  // Üst menü buton metnini ayarla
+  document.getElementById('themeBtn').innerHTML = theme === 'dark' ? '🌙 Koyu Mod (Mavi)' : '☀️ Açık Mod (Pembe)';
+  
+  // İstatistikleri doldur
+  document.getElementById('statPomo').textContent = S.get('statPomo') || 0;
+  document.getElementById('statTask').textContent = S.get('statTask') || 0;
+  document.getElementById('statBreak').textContent = S.get('statBreak') || 0;
+};
+</script>
+</body>
+</html>
